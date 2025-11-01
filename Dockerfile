@@ -11,7 +11,7 @@ RUN CGO_ENABLED=0 go build .
 FROM debian:trixie-slim
 
 # update ca-certificates
-RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
