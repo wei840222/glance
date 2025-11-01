@@ -32,6 +32,7 @@ jobs:
 
   go-release:
     if: startsWith(gitea.ref, 'refs/tags/')
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
