@@ -11,8 +11,9 @@ on:
       - local
 
 env:
-  REGISTRY: gitea.tailb0283.ts.net
+  REGISTRY: registry-gitea.home-infra.weii.cloud
   IMAGE_NAME: ${{ gitea.repository }}
+  TRIVY_VERSION: v0.67.2
 
 jobs:
   build-push:
@@ -21,6 +22,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+
+      - name: Install Trivy
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/bin ${{ env.TRIVY_VERSION }}
+
+      - name: Run Trivy vulnerability scanner in repo mode
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          skip-setup-trivy: true
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+          exit-code: 0
 
       - name: Setup Docker Context for Buildx
         run: |
@@ -39,6 +55,13 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ gitea.actor }}
+          password: ${{ secrets.PACKAGE_PAT }}
+
       - name: Build Docker image
         uses: docker/build-push-action@v6.18.0
         with:
@@ -47,48 +70,25 @@ jobs:
           platforms: |
             linux/amd64
             linux/arm64
-          outputs: type=oci,dest=./output.tar
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=local,src=/buildx-cache,compression=zstd
           cache-to: type=local,dest=/buildx-cache,compression=zstd,mode=max
 
-      - name: Setup skopeo
-        if: gitea.event_name != 'pull_request'
-        run: |
-          curl -sL https://github.com/lework/skopeo-binary/releases/download/v1.20.0/skopeo-linux-amd64 -o skopeo
-          chmod +x ./skopeo
-          mv ./skopeo /usr/bin/skopeo
-          mkdir -p /etc/containers
-          tee > /etc/containers/policy.json <<EOF
-          {
-              "default": [
-                  {
-                      "type": "insecureAcceptAnything"
-                  }
-              ],
-              "transports":
-                  {
-                      "docker-daemon":
-                          {
-                              "": [{"type":"insecureAcceptAnything"}]
-                          }
-                  }
-          }
-          EOF
-          skopeo --version
-
-      - name: Push Docker image
-        if: gitea.event_name != 'pull_request'
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.33.1
         env:
-          IMAGES: ${{ steps.meta.outputs.tags }}
-        run: |
-          echo "${{ secrets.PACKAGE_PAT }}" | skopeo login --tls-verify=false ${{ env.REGISTRY }} -u ${{ gitea.actor }} --password-stdin
-          for IMAGE in $IMAGES; do
-            TAG=${IMAGE#${{ env.REGISTRY }}/$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]'):}
-            echo "Pushing image: \"$IMAGE\"", tag: \"$TAG\""."
-            skopeo copy --dest-tls-verify=false --multi-arch=all oci-archive:./output.tar:$TAG docker://$IMAGE
-          done
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        with:
+          skip-setup-trivy: true
+          scan-type: image
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
+          format: table
+          vuln-type: os,library
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+          exit-code: 0
 
   update-github-manifests:
     if: startsWith(gitea.ref, 'refs/tags/')
