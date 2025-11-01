@@ -5,9 +5,13 @@ name: Go
 
 on:
   push:
-    branches: ["local"]
+    branches:
+      - local
+    tags:
+      - "*.*.*"
   pull_request:
-    branches: ["local"]
+    branches:
+      - local
 
 jobs:
   test:
@@ -25,3 +29,17 @@ jobs:
 
       - name: Build
         run: go build -v ./...
+
+  go-release:
+    if: startsWith(gitea.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.REPOSITORY_PAT }}
+        with:
+          args: release
