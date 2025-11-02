@@ -26,10 +26,10 @@ RUN groupadd -g ${gid} ${group} \
 
 USER ${user}
 
-WORKDIR /app
+WORKDIR /opt/glance
 
-COPY --from=builder --chown=${uid}:${gid} /src/glance /app/glance
-COPY --from=builder --chown=${uid}:${gid} /src/docs/glance.yml /app/config/glance.yml
+COPY --from=builder --chown=${uid}:${gid} /src/glance /opt/glance/glance
+COPY --from=builder --chown=${uid}:${gid} /src/docs/glance.yml /opt/glance/config/glance.yml
 
 EXPOSE 8080/tcp
 
