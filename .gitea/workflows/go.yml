@@ -27,9 +27,6 @@ jobs:
       - name: Test
         run: go test -v ./...
 
-      - name: Build
-        run: go build -v ./...
-
   go-release:
     if: startsWith(gitea.ref, 'refs/tags/')
     needs: test
@@ -46,6 +43,8 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         env:
-          GITHUB_TOKEN: ${{ secrets.REPOSITORY_PAT }}
+          GITEA_TOKEN: ${{ secrets.REPOSITORY_PAT }}
         with:
-          args: release
+          distribution: goreleaser
+          version: ~> v2
+          args: release --clean

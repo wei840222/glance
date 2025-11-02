@@ -1,0 +1,58 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+# The lines below are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+gitea_urls:
+  api: https://gitea.home-infra.weii.cloud/api/v1
+  download: https://gitea.home-infra.weii.cloud
+
+project_name: glanceapp/glance
+
+checksum:
+  disable: true
+
+builds:
+  - binary: glance
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/glanceapp/glance/internal/glance.buildVersion={{ .Tag }}
+    hooks:
+      post:
+        - cp docs/glance.yml dist/glanceapp/glance_{{ .Target }}/glance.yml
+
+archives:
+  - name_template: glance-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}
+    files:
+      - glance.yml
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+release:
+  footer: >-
+
+    ---
+
+    Released by [GoReleaser](https://github.com/goreleaser/goreleaser).

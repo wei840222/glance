@@ -26,10 +26,12 @@ RUN groupadd -g ${gid} ${group} \
 
 USER ${user}
 
-COPY --from=builder --chown=${uid}:${gid} /src/glance /usr/bin/glance
-COPY --from=builder --chown=${uid}:${gid} /src/docs/glance.yml /etc/glance/config.yaml
+WORKDIR /app
+
+COPY --from=builder --chown=${uid}:${gid} /src/glance /app/glance
+COPY --from=builder --chown=${uid}:${gid} /src/docs/glance.yml /app/config/glance.yml
 
 EXPOSE 8080/tcp
 
-ENTRYPOINT ["glance"]
-CMD ["--config", "/etc/glance/config.yaml"]
+ENTRYPOINT ["./glance"]
+CMD ["--config", "./config/glance.yml"]
